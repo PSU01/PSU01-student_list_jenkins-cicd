@@ -1,13 +1,23 @@
-/* import shared library */
-@Library('jenkins-shared-library')_
-
 pipeline {
     agent none
     stages {
         stage('Check bash syntax') {
             agent { docker { image 'koalaman/shellcheck-alpine:stable' } }
             steps {
-                script { bashCheck }
+                sh 'shellcheck --version'
+                sh 'apk --no-cache add grep'
+                sh '''
+                for file in $(grep -IRl "#!(/usr/bin/env |/bin/)" --exclude-dir ".git" --exclude Jenkinsfile \${WORKSPACE}); do
+                  if ! shellcheck -x $file; then
+                    export FAILED=1
+                  else
+                    echo "$file OK"
+                  fi
+                done
+                if [ "${FAILED}" = "1" ]; then
+                  exit 1
+                fi
+                '''
             }
         }
         stage('Check yaml syntax') {
@@ -77,23 +87,23 @@ pipeline {
         }
     }
 
-    post {
+   /* post {
         always {
           script {
          
             /* Use slackNotifier.groovy from shared library and provide current build result as parameter */
-            clean
-            slackNotifier currentBuild.result
-          }
-       }
-    }
-    /*  post {
+           // clean
+           // slackNotifier currentBuild.result
+         // }
+       // }
+     // }*/
+      post {
           success {
             slackSend (color: '#00FF00', message: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
             }
           failure {
                 slackSend (color: '#FF0000', message: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
               }   
-      }*/
+      }
 }
 
